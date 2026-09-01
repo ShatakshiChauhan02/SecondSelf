@@ -1,13 +1,36 @@
-# Environment files
+# =========================================================
+# SecondSelf - Git Ignore
+# =========================================================
+
+# -------------------------
+# Environment & Secrets
+# -------------------------
 .env
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
 .env.*.local
 
-# Python virtual environments & build artifacts
+# -------------------------
+# Python Virtual Environment
+# -------------------------
+backend/venv/
 venv/
 .venv/
 env/
 ENV/
+
+# -------------------------
+# Python Cache / Bytecode
+# -------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# -------------------------
+# Python Build Artifacts
+# -------------------------
 build/
 develop-eggs/
 dist/
@@ -20,57 +43,111 @@ parts/
 sdist/
 var/
 wheels/
+
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# Python bytecode & cache
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Node modules & frontend builds
+# -------------------------
+# Node.js Dependencies
+# -------------------------
 node_modules/
 frontend/node_modules/
+
+# -------------------------
+# Frontend Build Output
+# -------------------------
 frontend/dist/
 frontend/dist-ssr/
+
+# Vite local environment files
 frontend/*.local
 
-# Local databases & logs
+# -------------------------
+# Electron Build Output
+# -------------------------
+dist-electron/
+
+# -------------------------
+# Local Databases
+# -------------------------
 *.db
 *.sqlite
 *.sqlite3
-*.log
+
+# Keep the data folder itself in Git
+# but ignore generated/local database files
 data/*
 !data/.gitkeep
 
-# IDE & Editor files
+# -------------------------
+# Logs
+# -------------------------
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# -------------------------
+# Coverage / Testing
+# -------------------------
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+
+# -------------------------
+# TypeScript / Tool Caches
+# -------------------------
+*.tsbuildinfo
+
+# -------------------------
+# VS Code / IDE
+# -------------------------
 .vscode/
 .idea/
+*.iml
+
+# Editor temporary files
 *.swp
 *.swo
+*.swn
 *.sublime-workspace
 *.sublime-project
 
-# OS generated files
+# -------------------------
+# OS Generated Files
+# -------------------------
+.DS_Store
 Thumbs.db
 Desktop.ini
-.DS_Store
 ehthumbs.db
-# Electron build output
-dist-electron/
 
-# Node dependencies
-node_modules/
+# -------------------------
+# Temporary Files
+# -------------------------
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*~
 
-# Frontend build output
-frontend/dist/
+# -------------------------
+# Playwright
+# -------------------------
+playwright-report/
+test-results/
+blob-report/
 
-# Python virtual environment
-backend/venv/
-
-# Environment variables
-.env
-
-# Local database
-data/*.db
+# -------------------------
+# Electron / Chromium Temporary Files
+# -------------------------
+*.crash
