@@ -1,0 +1,32 @@
+appId: com.secondself.desktop
+productName: SecondSelf
+copyright: Copyright © 2026 SecondSelf Team
+directories:
+  output: dist-electron
+  buildResources: build
+files:
+  - "electron/**/*"
+  - "frontend/dist/**/*"
+  - "package.json"
+extraResources:
+  - from: "backend"
+    to: "backend"
+    filter:
+      - "**/*"
+      - "!**/__pycache__"
+      - "!**/*.pyc"
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: dir
+      arch:
+        - x64
+  verifyUpdateCodeSignature: false
+  icon: frontend/public/favicon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true

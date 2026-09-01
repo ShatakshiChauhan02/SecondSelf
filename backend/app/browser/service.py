@@ -36,9 +36,13 @@ class BrowserService:
         self._lock = asyncio.Lock()
 
     def _get_screenshots_dir(self) -> Path:
-        current_dir = Path(__file__).resolve().parent
-        project_root = current_dir.parent.parent.parent
-        screenshots_dir = project_root / "data" / "screenshots"
+        custom_data_dir = os.getenv("SECONDSELF_DATA_DIR")
+        if custom_data_dir:
+            screenshots_dir = Path(custom_data_dir) / "screenshots"
+        else:
+            current_dir = Path(__file__).resolve().parent
+            project_root = current_dir.parent.parent.parent
+            screenshots_dir = project_root / "data" / "screenshots"
         screenshots_dir.mkdir(parents=True, exist_ok=True)
         return screenshots_dir
 

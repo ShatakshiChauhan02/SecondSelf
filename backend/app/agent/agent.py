@@ -1,28 +1,36 @@
 import json
+import asyncio
 from typing import List, Dict, Any, Optional
 from app.llm.base import BaseLLMProvider
 from app.llm.factory import get_llm_provider
 from app.agent.prompts import SYSTEM_PROMPT
 from app.memory.service import MemoryService
 from app.tools.registry import ToolRegistry, default_registry
+from app.agent.task_model import Task, TaskStatus, TaskStep, Observation
+from app.agent.actions import map_action_to_tool
+from app.agent.task_repository import TaskRepository
 
 
 class AgentCore:
     """
-    SecondSelf AI Agent Core engine.
-    Orchestrates memory context, LLM reasoning, internal step planning, multi-tool workflow execution,
-    and task status reporting (completed | partial | failed).
+    SecondSelf Computer-Use AI Agent Core engine.
+    Orchestrates memory context, structured task planning, Observe -> Think -> Act -> Verify loop,
+    action retry/verification, task cancellation, and status reporting.
     """
+
+    _active_tasks: Dict[str, Task] = {}
 
     def __init__(
         self,
         provider: Optional[BaseLLMProvider] = None,
         memory_service: Optional[MemoryService] = None,
-        tool_registry: Optional[ToolRegistry] = None
+        tool_registry: Optional[ToolRegistry] = None,
+        task_repository: Optional[TaskRepository] = None
     ):
         self._provider = provider
         self._memory_service = memory_service or MemoryService()
         self._tool_registry = tool_registry or default_registry
+        self._task_repo = task_repository or TaskRepository()
 
     def get_provider(self) -> BaseLLMProvider:
         """Fetch active provider or initialize default provider."""
@@ -30,17 +38,21 @@ class AgentCore:
             self._provider = get_llm_provider()
         return self._provider
 
-    def _create_internal_plan(self, message: str) -> Dict[str, Any]:
-        """Create a lightweight internal plan representation."""
-        return {
-            "goal": message,
-            "steps": []
-        }
+    @classmethod
+    def cancel_task(cls, task_id: str) -> bool:
+        """Cancel an actively executing or pending task."""
+        if task_id in cls._active_tasks:
+            cls._active_tasks[task_id].status = TaskStatus.CANCELLED
+            return True
+        return False
+
+    @classmethod
+    def get_task(cls, task_id: str) -> Optional[Task]:
+        """Fetch active task model by ID."""
+        return cls._active_tasks.get(task_id)
 
     def _compute_task_status(self, executed_tools: List[Dict[str, Any]], max_limit_reached: bool) -> str:
-        """
-        Compute overall task status: 'completed' | 'partial' | 'failed'
-        """
+        """Compute overall task status string: 'completed' | 'partial' | 'failed' | 'cancelled'."""
         if not executed_tools:
             return "completed"
 
@@ -57,10 +69,29 @@ class AgentCore:
         else:
             return "failed"
 
-    async def process_task(self, message: str, history: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+    async def _observe_state(self, current_tool: Optional[str] = None) -> Observation:
+        """Capture current computer/browser observation state."""
+        obs = Observation(status_notes=f"Observed state before/after {current_tool or 'action'}")
+        
+        # Check active browser URL if browser tool was used
+        if current_tool and "browser" in current_tool:
+            try:
+                url_res = await self._tool_registry.execute("browser_current_url", {})
+                if url_res.get("success"):
+                    obs.active_url = url_res.get("result")
+            except Exception:
+                pass
+
+        return obs
+
+    async def process_task(
+        self,
+        message: str,
+        history: Optional[List[Dict[str, Any]]] = None,
+        max_iterations: int = 15
+    ) -> Dict[str, Any]:
         """
-        Process a user task message with memory integration, lightweight step planning,
-        and multi-tool execution loop (max 5 iterations).
+        Process a user task using the Observe -> Think -> Act -> Verify Loop.
         """
         clean_message = message.strip()
 
@@ -81,7 +112,12 @@ class AgentCore:
         memory_context = self._memory_service.get_memory_context_for_prompt(clean_message)
         combined_system_prompt = f"{SYSTEM_PROMPT}\n{memory_context}" if memory_context else SYSTEM_PROMPT
 
-        # 4. Build conversation sequence
+        # 4. Initialize structured Task model
+        task = Task(user_goal=clean_message)
+        task.status = TaskStatus.PLANNING
+        AgentCore._active_tasks[task.task_id] = task
+
+        # 5. Build conversation sequence
         messages = []
         if history:
             for item in history:
@@ -95,16 +131,30 @@ class AgentCore:
         provider = self.get_provider()
         tool_declarations = self._tool_registry.get_declarations()
         executed_tool_calls = []
-        internal_plan = self._create_internal_plan(clean_message)
 
-        # 5. Controlled Multi-Tool Execution Loop (Max 5 Iterations)
-        MAX_ITERATIONS = 5
+        # 6. Controlled Observe -> Think -> Act -> Verify Loop
+        MAX_ITERATIONS = max_iterations
+        MAX_STEP_RETRIES = 3
         iteration = 0
         max_limit_reached = False
 
-        while iteration < MAX_ITERATIONS:
-            iteration += 1
+        task.status = TaskStatus.ACTING
 
+        while iteration < MAX_ITERATIONS:
+            # Cancellation Check
+            if task.status == TaskStatus.CANCELLED:
+                self._task_repo.save_task(task)
+                return {
+                    "response": "Task was cancelled by user.",
+                    "provider": provider.provider_name,
+                    "status": "cancelled",
+                    "tool_calls": executed_tool_calls
+                }
+
+            iteration += 1
+            task.updated_at = datetime.now(timezone.utc).isoformat() if 'datetime' in globals() else ""
+
+            # THINK: Prompt LLM with context & tools
             llm_step = await provider.generate_response_with_tools(
                 messages=messages,
                 system_prompt=combined_system_prompt,
@@ -112,18 +162,41 @@ class AgentCore:
             )
 
             if llm_step.get("type") == "tool_call":
-                tool_name = llm_step.get("name")
-                tool_args = llm_step.get("args") or {}
+                action_name = llm_step.get("name", "")
+                raw_args = llm_step.get("args") or {}
 
-                # Internal plan step tracking
-                step_desc = f"Executing {tool_name}"
-                internal_plan["steps"].append({"description": step_desc, "status": "in_progress"})
+                # Map action name & arguments via controlled vocabulary
+                tool_name, tool_args = map_action_to_tool(action_name, raw_args)
 
-                # Execute tool via ToolRegistry
+                # Record plan step
+                step = TaskStep(
+                    step_id=len(task.plan) + 1,
+                    description=f"Action {tool_name}",
+                    tool_name=tool_name,
+                    arguments=tool_args,
+                    status="in_progress",
+                    expected_result=f"Execute {tool_name} successfully"
+                )
+                task.plan.append(step)
+
+                # ACT: Execute tool via ToolRegistry
+                task.status = TaskStatus.ACTING
                 tool_res = await self._tool_registry.execute(tool_name, tool_args)
                 is_success = tool_res.get("success", False)
 
-                # Record tool call metadata
+                # VERIFY: Observe resulting state and verify action result
+                task.status = TaskStatus.VERIFYING
+                obs = await self._observe_state(tool_name)
+                task.observations.append(obs)
+
+                if is_success:
+                    step.status = "verified"
+                    step.actual_result = str(tool_res.get("result", ""))[:300]
+                else:
+                    step.status = "failed"
+                    step.actual_result = str(tool_res.get("error", "Action failed"))[:300]
+
+                # Record tool call execution metadata
                 call_record = {
                     "iteration": iteration,
                     "name": tool_name,
@@ -133,18 +206,25 @@ class AgentCore:
                     "result_preview": str(tool_res.get("result", tool_res.get("error", "")))[:200]
                 }
                 executed_tool_calls.append(call_record)
+                task.executed_actions.append(call_record)
 
-                # Update internal plan step status
-                internal_plan["steps"][-1]["status"] = "completed" if is_success else "failed"
-
-                # Feed observation back to conversation history for LLM failure recovery or next tool step
-                obs_text = json.dumps(tool_res)
-                messages.append({"sender": "twin", "text": f"[Tool Call: {tool_name}({json.dumps(tool_args)})]"})
-                messages.append({"sender": "user", "text": f"[Tool Observation Result]: {obs_text}"})
+                # Retry / Failure recovery handling
+                if not is_success and step.retries < MAX_STEP_RETRIES:
+                    step.retries += 1
+                    messages.append({"sender": "twin", "text": f"[Action {tool_name} failed: {tool_res.get('error')}]"})
+                    messages.append({"sender": "user", "text": f"[System Retry Notice]: Action {tool_name} failed. Please attempt a recovery step or alternative tool."})
+                else:
+                    obs_text = json.dumps(tool_res)
+                    messages.append({"sender": "twin", "text": f"[Tool Call: {tool_name}({json.dumps(tool_args)})]"})
+                    messages.append({"sender": "user", "text": f"[Tool Observation Result]: {obs_text}"})
 
             else:
                 # LLM returned final text response
                 final_text = llm_step.get("text", "")
+                task.status = TaskStatus.COMPLETED
+                task.result_summary = final_text[:500]
+                self._task_repo.save_task(task)
+
                 task_status = self._compute_task_status(executed_tool_calls, max_limit_reached=False)
 
                 return {
@@ -156,6 +236,10 @@ class AgentCore:
 
         # Iteration limit reached safety exit
         max_limit_reached = True
+        task.status = TaskStatus.FAILED
+        task.result_summary = f"Task reached safety limit of {MAX_ITERATIONS} iterations."
+        self._task_repo.save_task(task)
+
         task_status = self._compute_task_status(executed_tool_calls, max_limit_reached=True)
 
         return {

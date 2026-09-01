@@ -4,12 +4,16 @@ from pathlib import Path
 
 
 def get_db_path() -> Path:
-    """Return the absolute path to the SQLite database file at data/secondself.db."""
-    # Find project root directory (parent of backend)
-    current_dir = Path(__file__).resolve().parent
-    # Navigate up to backend, then project root
-    project_root = current_dir.parent.parent.parent
-    data_dir = project_root / "data"
+    """Return the absolute path to the SQLite database file at data/secondself.db or SECONDSELF_DATA_DIR."""
+    custom_data_dir = os.getenv("SECONDSELF_DATA_DIR")
+    if custom_data_dir:
+        data_dir = Path(custom_data_dir)
+    else:
+        # Find project root directory (parent of backend)
+        current_dir = Path(__file__).resolve().parent
+        project_root = current_dir.parent.parent.parent
+        data_dir = project_root / "data"
+
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir / "secondself.db"
 

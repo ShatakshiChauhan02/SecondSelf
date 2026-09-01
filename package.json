@@ -1,0 +1,30 @@
+{
+  "name": "secondself",
+  "version": "1.0.0",
+  "description": "SecondSelf — Windows AI Digital Twin Desktop Overlay Application",
+  "main": "electron/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:electron": "concurrently -k \"npm run dev:frontend\" \"wait-on http://127.0.0.1:5173 && electron .\"",
+    "build:frontend": "npm --prefix frontend run build",
+    "build:electron": "npm run build:frontend && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win dir -c.win.signAndEditExecutable=false"
+  },
+  "keywords": [
+    "secondself",
+    "ai-twin",
+    "windows",
+    "desktop-overlay",
+    "fastapi",
+    "electron"
+  ],
+  "author": "SecondSelf Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^29.1.0",
+    "electron-builder": "^24.13.0",
+    "wait-on": "^7.2.0"
+  }
+}

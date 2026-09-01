@@ -8,6 +8,13 @@ class GeminiProvider(BaseLLMProvider):
     Google Gemini Cloud LLM Provider implementation with native Function/Tool calling support.
     """
 
+    DEFAULT_MODELS = [
+        "gemini-2.5-flash-lite",
+        "gemini-flash-latest",
+        "gemini-2.5-pro",
+        "gemini-flash-lite-latest"
+    ]
+
     def __init__(self, api_key: str = None):
         self._api_key = api_key or os.getenv("GEMINI_API_KEY")
 
@@ -42,15 +49,24 @@ class GeminiProvider(BaseLLMProvider):
                 if not formatted_contents:
                     formatted_contents = [types.Content(role="user", parts=[types.Part.from_text(text="")])]
 
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=formatted_contents,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_prompt,
-                        temperature=0.7,
-                    )
-                )
-                return response.text.strip()
+                last_exception = None
+                for model_name in self.DEFAULT_MODELS:
+                    try:
+                        response = client.models.generate_content(
+                            model=model_name,
+                            contents=formatted_contents,
+                            config=types.GenerateContentConfig(
+                                system_instruction=system_prompt,
+                                temperature=0.7,
+                            )
+                        )
+                        if response and response.text:
+                            return response.text.strip()
+                    except Exception as e:
+                        last_exception = e
+
+                if last_exception:
+                    raise last_exception
 
             except (ImportError, AttributeError):
                 import google.generativeai as genai
@@ -120,30 +136,40 @@ class GeminiProvider(BaseLLMProvider):
                         )
                     )
 
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=formatted_contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    temperature=0.3,
-                    tools=gemini_tools
-                )
-            )
+            last_exception = None
+            for model_name in self.DEFAULT_MODELS:
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=formatted_contents,
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_prompt,
+                            temperature=0.3,
+                            tools=gemini_tools
+                        )
+                    )
 
-            # Check if Gemini requested a function/tool call
-            if response.function_calls:
-                fc = response.function_calls[0]
-                args_dict = dict(fc.args) if fc.args else {}
-                return {
-                    "type": "tool_call",
-                    "name": fc.name,
-                    "args": args_dict
-                }
-            
-            return {
-                "type": "final_response",
-                "text": response.text.strip() if response.text else "No response content generated."
-            }
+                    if response:
+                        # Check if Gemini requested a function/tool call
+                        if response.function_calls:
+                            fc = response.function_calls[0]
+                            args_dict = dict(fc.args) if fc.args else {}
+                            return {
+                                "type": "tool_call",
+                                "name": fc.name,
+                                "args": args_dict
+                            }
+                        
+                        if response.text:
+                            return {
+                                "type": "final_response",
+                                "text": response.text.strip()
+                            }
+                except Exception as e:
+                    last_exception = e
+
+            if last_exception:
+                raise last_exception
 
         except Exception as e:
             # Fallback to prompt-based tool calling if native SDK call fails

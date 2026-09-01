@@ -83,7 +83,7 @@ async def test_agent_max_iterations_limit(mock_get_provider):
     ))
 
     agent = AgentCore(provider=mock_provider, tool_registry=mock_registry)
-    res = await agent.process_task("Loop forever tool call")
+    res = await agent.process_task("Loop forever tool call", max_iterations=5)
 
     assert "maximum safety limit of 5 tool iterations" in res["response"]
     assert len(res["tool_calls"]) == 5

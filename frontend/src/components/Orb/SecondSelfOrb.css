@@ -1,0 +1,209 @@
+/* SecondSelf AI Orb CSS Animations & Layers */
+
+.secondself-orb-root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* --- ORB SIZES --- */
+.orb-size-small {
+  width: 34px;
+  height: 34px;
+}
+
+.orb-size-medium {
+  width: 64px;
+  height: 64px;
+}
+
+.orb-size-large {
+  width: 110px;
+  height: 110px;
+}
+
+/* --- AMBIENT HALO LAYER --- */
+.orb-halo-layer {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.35) 0%, rgba(139, 92, 246, 0.12) 45%, transparent 70%);
+  filter: blur(10px);
+  opacity: 0.85;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+/* --- LAYER 1: OUTER RING --- */
+.orb-ring-outer {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(196, 181, 253, 0.35);
+  box-shadow: inset 0 0 12px rgba(167, 139, 250, 0.25);
+  animation: orbRotateClockwise 18s linear infinite;
+}
+
+/* --- LAYER 2: MIDDLE ORBITING RING --- */
+.orb-ring-middle {
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  border: 1px dashed rgba(216, 204, 255, 0.45);
+  animation: orbRotateCounterClockwise 12s linear infinite;
+}
+
+.orb-particle-node {
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #F2EEFF;
+  box-shadow: 0 0 8px #A78BFA;
+}
+
+.orb-particle-node-opposite {
+  position: absolute;
+  bottom: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #C4B5FD;
+  box-shadow: 0 0 6px #9B8AFB;
+}
+
+/* --- LAYER 3: INNER SHELL --- */
+.orb-shell-inner {
+  position: absolute;
+  inset: 22%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(242, 238, 255, 0.4) 0%, rgba(167, 139, 250, 0.2) 50%, rgba(15, 13, 23, 0.8) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(4px);
+  animation: orbPulseShell 4s ease-in-out infinite;
+}
+
+/* --- CORE SPHERE & BLOOM --- */
+.orb-core-sphere {
+  position: absolute;
+  inset: 34%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #F2EEFF 0%, #C4B5FD 45%, #8B5CF6 85%, #4C1D95 100%);
+  box-shadow: 0 0 20px rgba(167, 139, 250, 0.8), inset 0 0 10px rgba(255, 255, 255, 0.6);
+  animation: orbCoreBreath 3.5s ease-in-out infinite;
+}
+
+.orb-core-glimmer {
+  position: absolute;
+  top: 15%;
+  left: 20%;
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  filter: blur(1px);
+}
+
+.orb-core-bloom {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(196, 181, 253, 0.45) 0%, transparent 70%);
+  animation: orbBloomFade 2.5s ease-in-out infinite alternate;
+}
+
+/* --- STATE VARIATIONS --- */
+
+/* IDLE: Slow Calm Breathing */
+.orb-state-idle .orb-core-sphere {
+  animation: orbCoreBreath 4s ease-in-out infinite;
+}
+
+/* THINKING: Gentle Concentric Pulse */
+.orb-state-thinking .orb-halo-layer {
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.55) 0%, rgba(99, 102, 241, 0.2) 45%, transparent 70%);
+  animation: orbHaloPulse 1.8s ease-in-out infinite;
+}
+
+.orb-state-thinking .orb-ring-outer {
+  animation: orbRotateClockwise 8s linear infinite;
+  border-color: rgba(196, 181, 253, 0.65);
+}
+
+/* WORKING / EXECUTING: Faster Layered Movement */
+.orb-state-working .orb-ring-outer {
+  animation: orbRotateClockwise 4s linear infinite;
+  border-color: rgba(242, 238, 255, 0.7);
+}
+
+.orb-state-working .orb-ring-middle {
+  animation: orbRotateCounterClockwise 3s linear infinite;
+}
+
+.orb-state-working .orb-core-sphere {
+  animation: orbCoreWorking 1.2s ease-in-out infinite alternate;
+}
+
+/* WAITING FOR APPROVAL: Gentle Breathing + Particles */
+.orb-state-waiting .orb-halo-layer {
+  background: radial-gradient(circle, rgba(234, 179, 8, 0.35) 0%, rgba(167, 139, 250, 0.15) 50%, transparent 70%);
+}
+
+/* SUCCESS: Brief Soft Bright Pulse */
+.orb-state-success .orb-halo-layer {
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.75) 0%, rgba(16, 185, 129, 0.25) 50%, transparent 70%);
+  transform: scale(1.15);
+}
+
+/* ERROR: Soft Warm Amber/Red Warning Glow */
+.orb-state-error .orb-halo-layer {
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.45) 0%, rgba(167, 139, 250, 0.1) 60%, transparent 70%);
+}
+
+.orb-state-error .orb-core-sphere {
+  background: radial-gradient(circle at 30% 30%, #FEE2E2 0%, #F87171 45%, #DC2626 85%, #7F1D1D 100%);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+}
+
+/* --- KEYFRAME ANIMATIONS --- */
+@keyframes orbRotateClockwise {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes orbRotateCounterClockwise {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes orbCoreBreath {
+  0%, 100% { transform: scale(1); opacity: 0.95; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes orbCoreWorking {
+  0% { transform: scale(0.95); opacity: 0.9; }
+  100% { transform: scale(1.12); opacity: 1; }
+}
+
+@keyframes orbPulseShell {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+@keyframes orbHaloPulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.2); opacity: 1; }
+}
+
+@keyframes orbBloomFade {
+  0% { opacity: 0.3; transform: scale(0.9); }
+  100% { opacity: 0.7; transform: scale(1.1); }
+}

@@ -1,59 +1,124 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Bot, RefreshCw } from 'lucide-react';
+import React from 'react';
+import SecondSelfOrb from './Orb/SecondSelfOrb';
+import { Settings, Mic, Monitor, Minimize, Minimize2, X } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+export default function Header({
+  onToggleCompact,
+  onAnalyzeScreen,
+  onOpenSettings,
+  onOpenVoice,
+  isThinking,
+  lastActivity
+}) {
+  const isDesktop = typeof window !== 'undefined' && window.secondselfDesktop?.isElectron;
 
-export default function Header() {
-  const [online, setOnline] = useState(false);
-  const [checking, setChecking] = useState(true);
-
-  const checkHealth = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/health`, { method: 'GET' });
-      if (response.ok) {
-        setOnline(true);
-      } else {
-        setOnline(false);
-      }
-    } catch {
-      setOnline(false);
-    } finally {
-      setChecking(false);
+  const handleMinimize = () => {
+    if (window.secondselfDesktop?.minimizeWindow) {
+      window.secondselfDesktop.minimizeWindow();
     }
-  }, []);
+  };
 
-  useEffect(() => {
-    checkHealth();
-    const interval = setInterval(checkHealth, 5000);
-    return () => clearInterval(interval);
-  }, [checkHealth]);
+  const handleClose = () => {
+    if (window.secondselfDesktop?.closeToTray) {
+      window.secondselfDesktop.closeToTray();
+    }
+  };
+
+  const getOrbState = () => {
+    if (isThinking) return 'thinking';
+    if (lastActivity === 'analyzing' || lastActivity === 'thinking') return 'working';
+    if (lastActivity === 'completed') return 'success';
+    if (lastActivity === 'error') return 'error';
+    return 'idle';
+  };
+
+  const getStatusPill = () => {
+    if (isThinking) {
+      return { text: 'Thinking...', class: 'status-working' };
+    }
+    if (lastActivity === 'analyzing') {
+      return { text: 'Observing...', class: 'status-working' };
+    }
+    if (lastActivity === 'error') {
+      return { text: 'Action Paused', class: 'status-error' };
+    }
+    return { text: 'Ready', class: 'status-ready' };
+  };
+
+  const statusInfo = getStatusPill();
 
   return (
-    <header className="app-header">
-      <div className="header-brand">
-        <div className="brand-icon-wrapper">
-          <Bot size={22} className="brand-bot-icon" />
+    <header className="app-header drag-handle">
+      <div className="header-brand no-drag">
+        <div className="brand-orb-container">
+          <SecondSelfOrb size="small" state={getOrbState()} />
         </div>
-        <div className="brand-titles">
-          <h1 className="header-title">SecondSelf</h1>
-          <span className="header-subtitle">Windows AI Digital Twin</span>
+        <div className="brand-text">
+          <h1 className="brand-title">SecondSelf</h1>
+        </div>
+        <div className={`status-pill ${statusInfo.class}`}>
+          <span className="status-dot"></span>
+          <span className="status-label">{statusInfo.text}</span>
         </div>
       </div>
 
-      <div className="header-controls">
-        <div className={`twin-status-pill ${online ? 'online' : 'offline'}`}>
-          <span className="status-indicator-dot"></span>
-          <span className="status-label">
-            {checking ? 'Checking Status...' : online ? 'Twin Online' : 'Offline'}
-          </span>
-        </div>
-        <button 
-          className="header-refresh-btn"
-          onClick={checkHealth}
-          title="Refresh Backend Status"
-        >
-          <RefreshCw size={14} className={checking ? 'spin-icon' : ''} />
-        </button>
+      <div className="header-actions no-drag">
+        {onAnalyzeScreen && (
+          <button
+            className="header-icon-btn"
+            onClick={onAnalyzeScreen}
+            title="Screen Awareness — Analyze Desktop"
+          >
+            <Monitor size={15} />
+          </button>
+        )}
+
+        {onOpenVoice && (
+          <button
+            className="header-icon-btn"
+            onClick={onOpenVoice}
+            title="Voice Interaction"
+          >
+            <Mic size={15} />
+          </button>
+        )}
+
+        {onOpenSettings && (
+          <button
+            className="header-icon-btn"
+            onClick={onOpenSettings}
+            title="Settings & Preferences"
+          >
+            <Settings size={15} />
+          </button>
+        )}
+
+        {isDesktop && (
+          <>
+            <div className="header-divider" />
+            <button
+              className="header-icon-btn"
+              onClick={onToggleCompact}
+              title="Compact Orb Overlay Mode (Ctrl+Shift+Space)"
+            >
+              <Minimize size={14} />
+            </button>
+            <button
+              className="header-icon-btn"
+              onClick={handleMinimize}
+              title="Minimize to Windows Taskbar"
+            >
+              <Minimize2 size={14} />
+            </button>
+            <button
+              className="header-icon-btn close-btn"
+              onClick={handleClose}
+              title="Close to Windows System Tray"
+            >
+              <X size={14} />
+            </button>
+          </>
+        )}
       </div>
     </header>
   );
