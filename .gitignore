@@ -151,3 +151,4 @@ blob-report/
 # Electron / Chromium Temporary Files
 # -------------------------
 *.crash
+.rocketride/
